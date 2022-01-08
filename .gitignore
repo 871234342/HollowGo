@@ -1,0 +1,5 @@
+.vscode/
+nogo.exe
+send.bat
+connect.bat
+test.cpp

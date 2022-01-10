@@ -105,10 +105,19 @@ public:
 				if (meta.find("p") != meta.end())
 					parallel = atoi(meta["p"].value.c_str());
 				if (mcts_think_time == -1) {
-					if (meta.find("ttime") != meta.end())
+					if (meta.find("ttime") != meta.end())		// total time in sec
 						total_time = atoi(meta["ttime"].value.c_str()) * 1000;
 					if (meta.find("C") != meta.end())
-						MAX_STEP = atoi(meta["C"].value.c_str());
+						C1 = atoi(meta["C"].value.c_str());
+				}
+				else if(mcts_think_time == -2) {
+					if (meta.find("ttime") != meta.end())
+						total_time = atoi(meta["ttime"].value.c_str()) * 1000;
+					if (meta.find("C1") != meta.end())
+						C1 = atoi(meta["C1"].value.c_str());
+					if (meta.find("C2") != meta.end())
+						C2 = atoi(meta["C2"].value.c_str());
+						
 				}
 			}
 			else if(meta["search"].value == "MORON") {
@@ -122,6 +131,7 @@ public:
 
 	virtual void open_episode(const std::string& flag = "") {
 		remaining_time = total_time;
+		move = 0;
 	}
 
 	virtual action take_action(const board& state) {
@@ -131,9 +141,13 @@ public:
 				{
 				int think_time;
 				if (mcts_think_time == -1) {
-					think_time = remaining_time / MAX_STEP;
+					think_time = remaining_time / C1;
 					remaining_time -= think_time;
 					// std::cout << "Think_time: " << think_time << ". Remaining: " << remaining_time << '\n';
+				}
+				else if (mcts_think_time == -2) {
+					think_time = remaining_time / (C1 + std::max(C2 - move, 0));
+					remaining_time -= think_time;
 				}
 				else {
 					think_time = mcts_think_time;
@@ -170,5 +184,6 @@ private:
 	int parallel = 1;
 	int total_time = 36 * 1000;		// in ms
 	int remaining_time;
-	int MAX_STEP = 36;
+	int C1 = 36, C2 = 5;
+	int move = 0;
 };

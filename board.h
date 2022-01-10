@@ -153,19 +153,31 @@ public:
 			point p_min(0, 0), p_max(size_x - 1, size_y - 1);
 
 			cell near_l = x > p_min.x ? test[x - 1][y] : -1u; // left
-			if (near_l == piece_type::empty) liberty++;
+			if (near_l == piece_type::empty) {
+				liberty++;
+				break;
+			}
 			else if (near_l == who) check.emplace_back(x - 1, y);
 
 			cell near_r = x < p_max.x ? test[x + 1][y] : -1u; // right
-			if (near_r == piece_type::empty) liberty++;
+			if (near_r == piece_type::empty) {
+				liberty++;
+				break;
+			}
 			else if (near_r == who) check.emplace_back(x + 1, y);
 
 			cell near_d = y > p_min.y ? test[x][y - 1] : -1u; // down
-			if (near_d == piece_type::empty) liberty++;
+			if (near_d == piece_type::empty) {
+				liberty++;
+				break;
+			}
 			else if (near_d == who) check.emplace_back(x, y - 1);
 
 			cell near_u = y < p_max.y ? test[x][y + 1] : -1u; // up
-			if (near_u == piece_type::empty) liberty++;
+			if (near_u == piece_type::empty) {
+				liberty++;
+				break;
+			}
 			else if (near_u == who) check.emplace_back(x, y + 1);
 		}
 		return liberty;

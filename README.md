@@ -66,7 +66,13 @@ If time = -1
 ```bash
 ./nogo --black="Search=MCTS time=-1 C=10 ttime=300"
 ```
-Where C is a constant that alloted time = remaining_time / C, and total time for a player is ttime
+Where C is a constant that alloted time = remaining_time / C, and total time for a player is ttime.
+
+If time = -2
+```bash
+./nogo --black="Search=MCTS time=-1 C1=10 C2=10 ttime=300"
+```
+think_time = remaining_time / (C1 + max(C2 - ply, 0)), where ply is the number of move.
 
 ## Author
 

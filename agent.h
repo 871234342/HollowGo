@@ -103,7 +103,13 @@ public:
 				if (meta.find("RAVE") != meta.end())
 					RAVE = atof(meta["RAVE"].value.c_str());
 				if (meta.find("p") != meta.end())
-					parallel = atoi(mata["p"].value.c.str());
+					parallel = atoi(meta["p"].value.c_str());
+				if (mcts_think_time == -1) {
+					if (meta.find("ttime") != meta.end())
+						total_time = atoi(meta["ttime"].value.c_str()) * 1000;
+					if (meta.find("C") != meta.end())
+						MAX_STEP = atoi(meta["C"].value.c_str());
+				}
 			}
 			else if(meta["search"].value == "MORON") {
 				mode = MORON;
@@ -114,12 +120,26 @@ public:
 		}
 	}
 
+	virtual void open_episode(const std::string& flag = "") {
+		remaining_time = total_time;
+	}
+
 	virtual action take_action(const board& state) {
 		std::shuffle(space.begin(), space.end(), engine);
 		switch (mode) {
 			case MCTS:
 				{
-				mcts gameTree(state, who, mcts_sim_count, mcts_think_time, RAVE);
+				int think_time;
+				if (mcts_think_time == -1) {
+					think_time = remaining_time / MAX_STEP;
+					remaining_time -= think_time;
+					// std::cout << "Think_time: " << think_time << ". Remaining: " << remaining_time << '\n';
+				}
+				else {
+					think_time = mcts_think_time;
+					// std::cout << "Think_time: " << think_time << '\n';
+				}
+				mcts gameTree(state, who, mcts_sim_count, think_time, RAVE);
 				if (parallel == 1) {
 					return gameTree.tree_search();
 				}
@@ -148,4 +168,7 @@ private:
 	int mcts_think_time = 900;
 	double RAVE = 0.5;
 	int parallel = 1;
+	int total_time = 36 * 1000;		// in ms
+	int remaining_time;
+	int MAX_STEP = 36;
 };

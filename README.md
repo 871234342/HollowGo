@@ -62,6 +62,12 @@ This is default settings. Tweak the parameter below if you want to.
 ./nogo --black="search=MCTS time=900 RAVE=0.5"
 ```
 
+If time = -1
+```bash
+./nogo --black="Search=MCTS time=-1 C=10 ttime=300"
+```
+Where C is a constant that alloted time = remaining_time / C, and total time for a player is ttime
+
 ## Author
 
 [Computer Games and Intelligence (CGI) Lab](https://cgilab.nctu.edu.tw/), NYCU, Taiwan

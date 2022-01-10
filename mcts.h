@@ -13,20 +13,25 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 
 std::default_random_engine engine;
 
 bool time_up = false;
 
+char t;
+
 void mcts_timeout(int sig) {
     time_up = true;
+    // std::cout << "alarm triggered\n";
 }
 
 void child_handler(int sig) {
     pid_t pid;
     int status;
 
-    while((pid = waitpid(-1, &status, WNOHANG)) != 0) {
+    while((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        // std::cout << "child " << pid << "terminated\n";
         continue;
     }
 }
@@ -199,7 +204,7 @@ public:
                 if (visit_count >= most_visit_count) {
                     most_visit_count = visit_count;
                     best_move = child->parent_move;
-                } 
+                }
             }
         }
 
@@ -222,7 +227,7 @@ public:
 class mcts{
 public:
     mcts(const board& root_board, board::piece_type player_type, int c, int t, double r = 0) : 
-        root(root_board, player_type), cycles(c), think_time(t), RAVE(r), {
+        root(root_board, player_type), cycles(c), think_time(t), RAVE(r) {
             path.clear();
         }
 
@@ -237,9 +242,7 @@ public:
     }
 
     node* expand(node* to_expand) {
-        // std::cout<<"expanding...\n";
         node* to_sim = to_expand->expand();
-        // std::cout<<"emplacing...\n";
         if (to_sim != to_expand) {
             path.emplace_back(placement(to_sim->parent_move, to_sim->parent->who));
         }
@@ -280,7 +283,7 @@ public:
                 for (int i = 0; i < cycles; i++) {
                     path.clear();
                     mogi.katei.clear();
-                    node* working = select();
+                    node* working = this->select();
                     working = expand(working);
                     mogi = simulate(working);
                     update(working, mogi.shyoubu);
@@ -289,7 +292,7 @@ public:
             }
             else {
                 for (int i = 0; i < cycles; i++) {
-                    node* working = select();
+                    node* working = this->select();
                     working = expand(working);
                     mogi = simulate(working);
                     update(working, mogi.shyoubu);
@@ -299,11 +302,19 @@ public:
         else {
             time_up = false;
             signal(SIGALRM, &mcts_timeout);
-            ualarm(think_time * 1000, 0);
+            // std::cout << "alarm will be triggered after " << think_time <<" ms\n";
+            timeval tv_interval = {0, 0};
+            timeval tv_value = {think_time / 1000, (think_time % 1000) * 1000};
+            itimerval it;
+            it.it_interval = tv_interval;
+            it.it_value = tv_value;
+            if(setitimer(ITIMER_REAL, &it, NULL) != 0) {
+                perror("settimer");
+            }
             if (RAVE != 0) {
                 while(1) {
                     path.clear();
-                    node* working = select();
+                    node* working = this->select();
                     working = expand(working);
                     mogi = simulate(working);
                     update(working, mogi.shyoubu);
@@ -313,7 +324,7 @@ public:
             }
             else {
                 while(1) {
-                    node* working = select();
+                    node* working = this->select();
                     working = expand(working);
                     mogi = simulate(working);
                     update(working, mogi.shyoubu);
@@ -321,6 +332,31 @@ public:
                 }
             }
         }
+        /////////////////////////
+        // int total = 0;
+        // std::cout << "ONE PROCESS:\n";
+        // for (int i = 8; i >= 0; i--) {
+        //     for (int j = 8; j >= 0; j--) {
+        //         bool found = false;
+        //         for (node* child : root.children) {
+        //             if (child->parent_move == i * 9 + j) {
+        //                 std::cout << child->N << '\t';
+        //                 total += child->N;
+        //                 found = true;
+        //                 break;
+        //             }
+        //         }
+        //         if (!found) {
+        //             std::cout << 0 << '\t';
+        //         }
+        //     }
+        //     std::cout << '\n';
+        // }
+        // std::cout << root.current << '\n';
+        // std::cout << "total: " << total << "\n\n";
+
+        /////////////////////////
+
         return root.best_action(table);
     }
 
@@ -330,28 +366,39 @@ public:
             return tree_search();
         }
         pid_t pid;
+        signal(SIGCHLD, child_handler);
         for (int i = 1; i < parallel; i++) {
             pid = fork();
             if (pid == 0) {
                 break;
             }
+            else if (pid < 0) {
+                perror("fork");
+                std::cin >> t;
+            }
         }
-
+        
         if (pid == 0) { // child
             close(pipefd[0]);
             int count_table[81] = {0};
             tree_search(count_table);
-            write(pipefd[1], count_table, sizeof(count_table));
+            int n = write(pipefd[1], count_table, sizeof(count_table));
+            if (n < 0) {
+                perror("write");
+            }
             close(pipefd[1]);
             exit(0);
         }
         else {          // parent
             close(pipefd[1]);
             int count_table[81] = {0};
-            int *child_table;
+            int child_table[81];
             tree_search(count_table);
             for (int i = 1; i < parallel; i++) {
-                read(pipefd[0], child_table, sizeof(count_table));
+                int n = read(pipefd[0], child_table, sizeof(child_table));
+                if (n < 0) {
+                    perror("read");
+                }
                 for (int j = 0; j < 81; j++) {
                     count_table[j] += child_table[j];
                 }
@@ -366,6 +413,22 @@ public:
                     most_visited = count_table[move];
                 }
             }
+            ////////////////////
+            // std::cout <<"TOTAL:\n";
+            // int total = 0;
+            // for (int i = 8; i >= 0; i--) {
+            //     for (int j = 8; j >= 0; j--) {
+            //         std::cout << count_table[9 * i + j] << '\t';
+            //         total += count_table[9 * i + j];
+            //     }
+            //     std::cout << '\n';
+            // }
+            // std::cout << root.current << '\n';
+            // std::cout << "best move: " << best_move << "   total: " << total << '\n';
+            // if (total != 200) {
+            //     std::cin >> t;
+            // }
+            /////////////////
             return action::place(best_move, root.who);
         }
     }
